@@ -14,6 +14,16 @@ const item = new Schema({
   status: { type: String, enum: ITEM_STATUSES, default: "pendiente" },
   round: { type: Number, default: 1 },
   addedAt: { type: Date, default: Date.now },
+  addedByName: String,
+  noteByName: String,
+});
+
+/** Cambios hechos por alguien distinto al mesero dueño del pedido (para avisarle). */
+const change = new Schema({
+  by: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  byName: { type: String, required: true },
+  text: { type: String, required: true },
+  at: { type: Date, default: Date.now },
 });
 
 const schema = new Schema(
@@ -23,6 +33,7 @@ const schema = new Schema(
     waiter: { type: Schema.Types.ObjectId, ref: "User", required: true },
     waiterName: { type: String, required: true },
     items: { type: [item], default: [] },
+    changes: { type: [change], default: [] },
     status: { type: String, enum: ORDER_STATUSES, default: "abierto" },
     /** Estado derivado de los ítems: el más atrasado manda. */
     stage: { type: String, enum: ITEM_STATUSES, default: "pendiente" },

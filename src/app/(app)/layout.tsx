@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { OrderAlerts } from "@/components/alerts";
+import { ChangeNotices, OrderAlerts } from "@/components/alerts";
 import { OrdersProvider } from "@/components/orders-context";
 import { PromoModal } from "@/components/promos";
 import { Shell } from "@/components/shell";
@@ -12,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <OrdersProvider me={me}>
       <Shell me={me}>{children}</Shell>
       <OrderAlerts />
+      <ChangeNotices />
       <PromoModal />
     </OrdersProvider>
   );

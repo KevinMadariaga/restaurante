@@ -25,7 +25,11 @@ export type OrderItem = {
   status: ItemStatus;
   round: number;
   addedAt: string;
+  addedByName?: string;
+  noteByName?: string;
 };
+
+export type OrderChange = { _id: string; by: string; byName: string; text: string; at: string };
 
 export type Order = {
   _id: string;
@@ -34,6 +38,7 @@ export type Order = {
   waiter: string;
   waiterName: string;
   items: OrderItem[];
+  changes?: OrderChange[];
   status: OrderStatus;
   stage: ItemStatus;
   total: number;

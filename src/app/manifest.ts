@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Pueblito Paisa",
-    short_name: "Pueblito",
+    short_name: "Pueblito Paisa",
     start_url: "/",
     display: "standalone",
     background_color: "#fbf6ec",

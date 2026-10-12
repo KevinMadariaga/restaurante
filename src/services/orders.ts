@@ -5,6 +5,8 @@ import type { Session } from "@/lib/jwt";
 import { tracksStock, type PayMethod } from "@/lib/constants";
 import { nextSeq } from "@/models/Counter";
 import { Order } from "@/models/Order";
+
+type OrderDocument = Awaited<ReturnType<typeof getOpen>>;
 import { Product } from "@/models/Product";
 import { CashSession } from "@/models/CashSession";
 import { todayPrices } from "./promotions";
@@ -41,13 +43,18 @@ function restock(entries: [string, number][]) {
   return Promise.all(entries.map(([id, n]) => Product.updateOne({ _id: id, category: { $ne: "platillos" } }, { $inc: { stock: n } })));
 }
 
-async function snapshot(items: NewItem[], byId: Awaited<ReturnType<typeof takeStock>>, round: number) {
+async function snapshot(items: NewItem[], byId: Awaited<ReturnType<typeof takeStock>>, round: number, user: Session) {
   const promo = await todayPrices();
   return items.map((i) => {
     const p = byId.get(i.product)!;
     const price = promo.get(i.product) ?? p.salePrice;
-    return { product: p._id, name: p.name, category: p.category, price, promo: promo.has(i.product), cost: p.costPrice, qty: i.qty, note: i.note, round };
+    return { product: p._id, name: p.name, category: p.category, price, promo: promo.has(i.product), cost: p.costPrice, qty: i.qty, note: i.note, round, addedByName: user.name };
   });
+}
+
+/** Si quien modifica no es el mesero del pedido, queda registrado para avisarle. */
+function logChange(order: OrderDocument, user: Session, text: string) {
+  if (String(order.waiter) !== user.sub) order.changes.push({ by: user.sub, byName: user.name, text });
 }
 
 async function getOpen(id: string) {
@@ -65,7 +72,7 @@ export function listOpen() {
 export async function createOrAppend(user: Session, table: number, items: NewItem[]) {
   await assertTable(table);
   const existing = await Order.findOne({ table, status: "abierto" }, "_id").lean();
-  if (existing) return addItems(String(existing._id), items);
+  if (existing) return addItems(user, String(existing._id), items);
 
   const byId = await takeStock(items);
   try {
@@ -74,7 +81,7 @@ export async function createOrAppend(user: Session, table: number, items: NewIte
       table,
       waiter: user.sub,
       waiterName: user.name,
-      items: await snapshot(items, byId, 1),
+      items: await snapshot(items, byId, 1, user),
     });
   } catch (e) {
     await restock(items.map((i) => [i.product, i.qty]));
@@ -84,11 +91,13 @@ export async function createOrAppend(user: Session, table: number, items: NewIte
   }
 }
 
-export async function addItems(orderId: string, items: NewItem[]) {
+export async function addItems(user: Session, orderId: string, items: NewItem[]) {
   const order = await getOpen(orderId);
   const byId = await takeStock(items);
   const round = Math.max(0, ...order.items.map((i) => i.round)) + 1;
-  order.items.push(...(await snapshot(items, byId, round)));
+  const added = await snapshot(items, byId, round, user);
+  order.items.push(...added);
+  logChange(order, user, `agregó ${added.map((i) => `${i.qty}× ${i.name}${i.note ? ` (“${i.note}”)` : ""}`).join(", ")}`);
   try {
     return await order.save();
   } catch (e) {
@@ -112,13 +121,14 @@ export async function deliver(orderId: string) {
   return order.save();
 }
 
-export async function removeItem(orderId: string, itemId: string) {
+export async function removeItem(user: Session, orderId: string, itemId: string) {
   const order = await getOpen(orderId);
   const item = order.items.find((i) => String(i._id) === itemId);
   if (!item) throw new HttpError(404, "El producto ya no está en el pedido");
   // Solo vuelve al inventario lo que no alcanzó a prepararse.
   if (item.status === "pendiente") await restock([[String(item.product), item.qty]]);
   order.items.pull(item._id);
+  logChange(order, user, `quitó ${item.qty}× ${item.name}`);
   if (!order.items.length) {
     order.status = "cancelado";
     order.cancelledAt = new Date();
@@ -126,8 +136,21 @@ export async function removeItem(orderId: string, itemId: string) {
   return order.save();
 }
 
-export async function cancel(user: Session, orderId: string) {
-  if (!STAFF.includes(user.role)) throw new HttpError(403, "Solo caja puede cancelar pedidos");
+/** Mesero o caja: el cliente se fue sin consumir. Lo no preparado vuelve al inventario. */
+/** Agrega o cambia el detalle de un producto que aún no se ha preparado. */
+export async function setNote(user: Session, orderId: string, itemId: string, note: string) {
+  const order = await getOpen(orderId);
+  const item = order.items.find((i) => String(i._id) === itemId);
+  if (!item) throw new HttpError(404, "El producto ya no está en el pedido");
+  if (item.status !== "pendiente") throw new HttpError(409, "Ya se preparó; agrega uno nuevo con el detalle");
+  if (item.note === note) return order;
+  item.note = note;
+  item.noteByName = user.name;
+  logChange(order, user, note ? `puso detalle a ${item.name}: “${note}”` : `quitó el detalle de ${item.name}`);
+  return order.save();
+}
+
+export async function cancel(orderId: string) {
   const order = await getOpen(orderId);
   await restock(order.items.filter((i) => i.status === "pendiente").map((i) => [String(i.product), i.qty]));
   order.status = "cancelado";

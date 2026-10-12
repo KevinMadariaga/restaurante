@@ -59,6 +59,7 @@ export const orderActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("deliver") }),
   z.object({ action: z.literal("cancel") }),
   z.object({ action: z.literal("remove"), itemId: id }),
+  z.object({ action: z.literal("note"), itemId: id, note: z.string().trim().max(120) }),
   z.object({ action: z.literal("add"), items: orderItemsSchema }),
   z.object({ action: z.literal("pay"), method: z.enum(PAY_METHODS), received: money.optional() }),
 ]);

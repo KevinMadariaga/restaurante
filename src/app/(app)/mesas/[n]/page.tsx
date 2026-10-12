@@ -1,6 +1,6 @@
 "use client";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Check, Minus, Plus, Search, Send, ShoppingBag, Trash, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, Check, Minus, PencilLine, Plus, Search, Send, ShoppingBag, Trash, UtensilsCrossed, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -302,6 +302,7 @@ function CurrentOrder({ table, onChange }: { table: number; onChange: () => void
   const { data } = useOrders();
   const order = data?.find((o) => o.table === table);
   const [busy, setBusy] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!data) return <Skeleton className="h-40" />;
   if (!order)
@@ -326,6 +327,20 @@ function CurrentOrder({ table, onChange }: { table: number; onChange: () => void
     }
   }
 
+  async function cancelOrder() {
+    setBusy(true);
+    try {
+      await api(`/api/orders/${order!._id}`, { method: "PATCH", body: { action: "cancel" } });
+      toast.success(`Pedido de mesa ${table} cancelado`);
+      setConfirmCancel(false);
+      onChange();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-linea px-4 py-3">
@@ -335,7 +350,7 @@ function CurrentOrder({ table, onChange }: { table: number; onChange: () => void
       <ul className="max-h-[50dvh] divide-y divide-linea overflow-y-auto overscroll-contain lg:max-h-[55dvh]">
         <AnimatePresence initial={false}>
           {order.items.map((i) => (
-            <ItemRow key={i._id} item={i} orderId={order._id} onChange={onChange} />
+            <ItemRow key={i._id} item={i} orderId={order._id} owner={order.waiterName} onChange={onChange} />
           ))}
         </AnimatePresence>
       </ul>
@@ -353,14 +368,43 @@ function CurrentOrder({ table, onChange }: { table: number; onChange: () => void
             </motion.div>
           )}
         </AnimatePresence>
+        <AnimatePresence mode="wait" initial={false}>
+          {confirmCancel ? (
+            <motion.div
+              key="confirm"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="rounded-2xl border border-teja/30 bg-teja/8 p-3"
+            >
+              <p className="text-sm text-teja-2">¿Cancelar todo el pedido de la mesa {table}? Lo no preparado vuelve al inventario y la mesa queda libre.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button size="sm" variant="dark" onClick={() => setConfirmCancel(false)}>
+                  No
+                </Button>
+                <Button size="sm" variant="primary" icon={X} loading={busy} onClick={cancelOrder}>
+                  Sí, cancelar
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div key="ask" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <Button variant="danger" size="sm" className="w-full" icon={X} onClick={() => setConfirmCancel(true)}>
+                Cancelar pedido
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
-function ItemRow({ item, orderId, onChange }: { item: OrderItem; orderId: string; onChange: () => void }) {
+function ItemRow({ item, orderId, owner, onChange }: { item: OrderItem; orderId: string; owner: string; onChange: () => void }) {
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null); // null = no se está editando
 
   useEffect(() => {
     if (!armed) return;
@@ -381,6 +425,26 @@ function ItemRow({ item, orderId, onChange }: { item: OrderItem; orderId: string
     }
   }
 
+  // Lo que hizo otro mesero (o caja) en este pedido se resalta para el dueño.
+  const addedByOther = item.addedByName && item.addedByName !== owner ? item.addedByName : null;
+  const noteByOther = item.note && item.noteByName && item.noteByName !== owner ? item.noteByName : null;
+  const other = addedByOther ?? noteByOther;
+
+  async function saveNote(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api(`/api/orders/${orderId}`, { method: "PATCH", body: { action: "note", itemId: item._id, note: note ?? "" } });
+      toast.success(`Detalle de ${item.name} actualizado`);
+      setNote(null);
+      onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <motion.li
       layout
@@ -389,13 +453,48 @@ function ItemRow({ item, orderId, onChange }: { item: OrderItem; orderId: string
       exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
       className="overflow-hidden"
     >
-      <div className="flex items-start gap-3 px-4 py-3">
+      <div className={cn("flex items-start gap-3 px-4 py-3", other && "border-l-4 border-puerta bg-puerta/6 pl-3")}>
         <span className="mt-0.5 w-7 font-semibold tabular">{item.qty}×</span>
         <div className="min-w-0 flex-1">
-          <p className="leading-tight font-medium">{item.name}</p>
-          {item.note && <p className="text-sm text-tinta-2 italic">“{item.note}”</p>}
+          <p className={cn("leading-tight font-medium", addedByOther && "underline decoration-puerta decoration-[3px] underline-offset-4")}>{item.name}</p>
+          {note === null ? (
+            item.note && (
+              <p className={cn("text-sm text-tinta-2 italic", noteByOther && "text-puerta underline decoration-puerta decoration-2 underline-offset-4")}>
+                “{item.note}”
+              </p>
+            )
+          ) : (
+            <form onSubmit={saveNote} className="mt-1.5 flex gap-2">
+              <input
+                autoFocus
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={120}
+                enterKeyHint="done"
+                placeholder="Sin cebolla, bien asado…"
+                className="input h-10 min-w-0 flex-1 py-0"
+              />
+              <Button type="submit" size="sm" loading={busy} aria-label="Guardar detalle" icon={Check} />
+              <Button type="button" size="sm" variant="ghost" onClick={() => setNote(null)}>
+                ✕
+              </Button>
+            </form>
+          )}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <StatusChip status={item.status} />
+            {other && (
+              <span className="rounded-full bg-puerta px-2 py-0.5 text-[11px] font-bold text-white">
+                {addedByOther ? `Agregado por ${addedByOther}` : `Detalle por ${noteByOther}`}
+              </span>
+            )}
+            {item.status === "pendiente" && note === null && (
+              <button
+                onClick={() => setNote(item.note)}
+                className="inline-flex h-7 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-puerta transition active:scale-95"
+              >
+                <PencilLine className="size-3.5" /> {item.note ? "Editar detalle" : "Detalle"}
+              </button>
+            )}
             {item.round > 1 && <span className="text-xs text-tinta-2">Ronda {item.round}</span>}
             {item.promo && <PromoBadge />}
           </div>

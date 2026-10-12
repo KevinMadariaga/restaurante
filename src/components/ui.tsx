@@ -145,6 +145,7 @@ export function Sheet({
   children,
   footer,
   wide,
+  center,
 }: {
   open: boolean;
   onClose: () => void;
@@ -152,6 +153,8 @@ export function Sheet({
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /** Modal centrado también en móvil (avisos), en vez de hoja inferior. */
+  center?: boolean;
 }) {
   const drag = useDragControls();
 
@@ -170,7 +173,7 @@ export function Sheet({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+        <div className={cn("fixed inset-0 z-50 flex justify-center", center ? "items-center p-4 sm:p-6" : "items-end sm:items-center sm:p-6")}>
           <motion.div
             className="absolute inset-0 bg-tinta/40 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
@@ -182,30 +185,33 @@ export function Sheet({
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ y: "100%", opacity: 0.6 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
-            transition={{ type: "spring", bounce: 0.12, duration: 0.45 }}
-            drag="y"
+            initial={center ? { scale: 0.92, opacity: 0 } : { y: "100%", opacity: 0.6 }}
+            animate={center ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
+            exit={center ? { scale: 0.96, opacity: 0, transition: { duration: 0.15 } } : { y: "100%", opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
+            transition={{ type: "spring", bounce: center ? 0.25 : 0.12, duration: 0.45 }}
+            drag={center ? false : "y"}
             dragListener={false}
             dragControls={drag}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={(_, i) => (i.offset.y > 110 || i.velocity.y > 600) && onClose()}
             className={cn(
-              "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-cal shadow-2xl sm:rounded-3xl",
+              "relative flex max-h-[92dvh] w-full flex-col overflow-hidden bg-cal shadow-2xl",
+              center ? "max-h-[85dvh] rounded-3xl" : "rounded-t-3xl sm:rounded-3xl",
               wide ? "sm:max-w-2xl" : "sm:max-w-lg",
             )}
           >
-            <div
-              className="flex cursor-grab touch-none justify-center pt-2.5 pb-1 active:cursor-grabbing sm:hidden"
-              onPointerDown={(e) => drag.start(e)}
-            >
-              <span className="h-1.5 w-10 rounded-full bg-cal-3" />
-            </div>
+            {!center && (
+              <div
+                className="flex cursor-grab touch-none justify-center pt-2.5 pb-1 active:cursor-grabbing sm:hidden"
+                onPointerDown={(e) => drag.start(e)}
+              >
+                <span className="h-1.5 w-10 rounded-full bg-cal-3" />
+              </div>
+            )}
             <header
-              className="flex items-center justify-between gap-3 px-5 pt-2 pb-3 sm:pt-5"
-              onPointerDown={(e) => e.pointerType === "touch" && drag.start(e)}
+              className={cn("flex items-center justify-between gap-3 px-5 pb-3", center ? "pt-5" : "pt-2 sm:pt-5")}
+              onPointerDown={(e) => !center && e.pointerType === "touch" && drag.start(e)}
             >
               <h2 className="font-display text-2xl leading-tight">{title}</h2>
               <button onClick={onClose} aria-label="Cerrar" className="grid size-9 place-items-center rounded-full bg-cal-2 text-tinta-2 active:scale-95">
@@ -213,7 +219,11 @@ export function Sheet({
               </button>
             </header>
             <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-5">{children}</div>
-            {footer && <footer className="border-t border-linea bg-white/60 px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">{footer}</footer>}
+            {footer && (
+              <footer className={cn("border-t border-linea bg-white/60 px-5 pt-3", center ? "pb-4" : "pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]")}>
+                {footer}
+              </footer>
+            )}
           </motion.div>
         </div>
       )}

@@ -321,7 +321,7 @@ function PaySheet({
             {confirmCancel ? (
               <div className="flex items-center gap-2">
                 <p className="flex-1 text-sm text-teja-2">¿Cancelar todo el pedido? Lo no preparado vuelve al inventario.</p>
-                <Button size="sm" variant="ghost" onClick={() => setConfirmCancel(false)}>
+                <Button size="sm" variant="dark" onClick={() => setConfirmCancel(false)}>
                   No
                 </Button>
                 <Button size="sm" variant="primary" loading={busy} onClick={() => run({ action: "cancel" }, `Pedido de mesa ${o.table} cancelado`)}>

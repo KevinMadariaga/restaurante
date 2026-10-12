@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
 import { Logo } from "@/components/shell";
 import { LoginForm } from "./form";
 
-export const metadata: Metadata = { title: "Ingresar" };
 
 export default function LoginPage() {
   return (

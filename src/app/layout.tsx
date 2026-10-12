@@ -7,7 +7,7 @@ const display = Gloock({ weight: "400", subsets: ["latin"], variable: "--font-gl
 const sans = Figtree({ subsets: ["latin"], variable: "--font-figtree" });
 
 export const metadata: Metadata = {
-  title: { default: "Pueblito Paisa", template: "%s · Pueblito Paisa" },
+  title: "Pueblito Paisa",
   description: "Pedidos, caja y ventas del restaurante Pueblito Paisa",
   appleWebApp: { capable: true, title: "Pueblito Paisa", statusBarStyle: "default" },
 };
