@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/*
+  Pueblito Paisa — muros encalados, zócalos de colores y tejas de barro.
+  Paleta tomada de fachadas antioqueñas: cal, teja, maíz, balcón verde, puerta azul, rosa de veranera.
+*/
+@theme {
+  --color-cal: #fbf6ec;
+  --color-cal-2: #f3eadb;
+  --color-cal-3: #e9dcc6;
+  --color-linea: #e3d4bb;
+  --color-tinta: #2b1d14;
+  --color-tinta-2: #6f5a49;
+  --color-teja: #c2452d;
+  --color-teja-2: #a3361f;
+  --color-maiz: #e8a838;
+  --color-balcon: #1f6b52;
+  --color-balcon-2: #17543f;
+  --color-puerta: #2b5c8a;
+  --color-rosa: #d36b86;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --animate-rise: rise 0.5s var(--ease-out) both;
+  --animate-ring: ring 1.6s var(--ease-out) infinite;
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes ring {
+    0% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent); }
+    100% { box-shadow: 0 0 0 14px transparent; }
+  }
+}
+
+@theme inline {
+  --font-display: var(--font-gloock), Georgia, serif;
+  --font-sans: var(--font-figtree), system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+    background: var(--color-cal);
+    color: var(--color-tinta);
+  }
+  body {
+    @apply font-sans antialiased;
+    min-height: 100dvh;
+    /* grano de pared encalada */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .15 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  input, textarea, select { font-size: 16px; }
+  button, a, [role="button"], label {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  :focus-visible { outline: 2px solid var(--color-puerta); outline-offset: 2px; }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  /* Franja de zócalo: la firma visual de la app. */
+  .zocalo {
+    background: repeating-linear-gradient(
+      90deg,
+      var(--color-teja) 0 56px,
+      var(--color-maiz) 56px 84px,
+      var(--color-balcon) 84px 140px,
+      var(--color-puerta) 140px 176px,
+      var(--color-rosa) 176px 204px
+    );
+  }
+  /* Borde de tejas de barro (alero). */
+  .tejado {
+    background:
+      radial-gradient(circle at 50% 0, var(--color-teja) 9px, transparent 9.5px) 0 0 / 20px 10px repeat-x;
+  }
+  .card {
+    @apply rounded-2xl border border-linea bg-white/75 shadow-[0_1px_0_rgb(43_29_20/0.04),0_8px_24px_-12px_rgb(43_29_20/0.18)];
+  }
+  .label { @apply text-[13px] font-semibold tracking-wide text-tinta-2 uppercase; }
+  .input {
+    @apply w-full rounded-xl border border-linea bg-white px-3.5 py-2.5 text-tinta placeholder:text-tinta-2/50
+      transition-[border-color,box-shadow] duration-150 outline-none
+      focus:border-puerta focus:ring-4 focus:ring-puerta/15;
+  }
+  .scroll-x { @apply flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden; }
+}
+
+/* Impresión de tiquetes: solo se imprime .print-area, en ancho de impresora térmica. */
+.print-area { display: none; }
+@media print {
+  @page { size: 80mm auto; margin: 3mm; }
+  body { background: #fff !important; min-height: 0; }
+  body > *:not(.print-area) { display: none !important; }
+  .print-area { display: block; width: 74mm; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+}
